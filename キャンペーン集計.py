@@ -172,6 +172,24 @@ def aggregate_data() -> tuple[pd.DataFrame, dict, list[str]]:
         )
 
     colA, colB, colC, colD = df.columns[:4]
+    # 名前だけ入力・メールだけ入力をチェック
+
+    invalid_rows = []
+
+    for idx, row in df.iterrows():
+
+        name = str(row[colA]).strip() if pd.notna(row[colA]) else ""
+        mail = str(row[colC]).strip() if pd.notna(row[colC]) else ""
+
+        if (name and not mail) or (mail and not name):
+            invalid_rows.append(idx + 2)  # Excel行番号
+
+    if invalid_rows:
+
+        raise ValueError(
+            "名前とメールアドレスはセットで入力してください。\n"
+            f"エラー行: {', '.join(map(str, invalid_rows))}"
+        )
 
     # 「取消済」完全一致のみ除外
 
