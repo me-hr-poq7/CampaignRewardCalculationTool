@@ -152,7 +152,7 @@ def create_backup(file_path: Path) -> None:
     )
 
 # ============================================================
-# 集計
+# チェック
 # ============================================================
 
 
@@ -166,14 +166,21 @@ def aggregate_data() -> tuple[pd.DataFrame, dict, list[str]]:
         dtype=str
     )
 
+    def aggregate_data() -> tuple[pd.DataFrame, dict, list[str]]:
+        warnings = []
+
+        df = pd.read_excel(INPUT_XLSX, sheet_name=INPUT_SHEET_NAME, dtype=str)
+
     if df.shape[1] < 4:
         raise ValueError(
             "「集計前」シートにA～D列が必要です。"
         )
 
     colA, colB, colC, colD = df.columns[:4]
-    # 名前だけ入力・メールだけ入力をチェック
 
+    df["__excel_row__"] = df.index + 2
+
+    # 名前だけ入力・メールだけ入力をチェック
     invalid_rows = []
 
     for idx, row in df.iterrows():
@@ -191,8 +198,31 @@ def aggregate_data() -> tuple[pd.DataFrame, dict, list[str]]:
             f"エラー行: {', '.join(map(str, invalid_rows))}"
         )
 
-    # 「取消済」完全一致のみ除外
+    # 金額チェック
+    df["__金額_yen__"] = [
+        parse_money_to_yen(
+            value,
+            excel_row,
+            warnings
+        )
+        for value, excel_row in zip(
+            df[colD],
+            df["__excel_row__"]
+        )
+    ]
 
+    # 警告表示
+    if warnings:
+        print("\n=== 警告一覧 ===")
+
+        for message in warnings:
+            print(message)
+
+        print(
+            "\n警告がありますが処理を継続します。"
+        )
+
+    # 「取消済」完全一致のみ除外
     df = df.loc[
         df[colB]
         .fillna("")
@@ -201,14 +231,9 @@ def aggregate_data() -> tuple[pd.DataFrame, dict, list[str]]:
         != "取消済"
     ].copy()
 
-    df["__金額_yen__"] = [
-        parse_money_to_yen(
-            value,
-            idx + 2,
-            warnings
-        )
-        for idx, value in enumerate(df[colD])
-    ]
+# ==================================================
+# 集計
+# ==================================================
 
     grouped = (
         df.groupby(
@@ -449,13 +474,6 @@ def main():
         grouped,
         count_dict
     )
-
-    if warnings:
-
-        print("\n=== 警告一覧 ===")
-
-        for message in warnings:
-            print(message)
 
     print("\n処理が完了しました。")
 
